@@ -15,102 +15,67 @@ interface ApiSearchItem {
   type_name?: string;
 }
 
-export async function* searchFromApiStream(
-  apiSite: ApiSite,
-  query: string
-): AsyncGenerator<SearchResult[], void, unknown> {
+// 匹配 m3u8 链接的正则
+const M3U8_PATTERN = /(https?:\/\/[^"'\s]+?\.m3u8)/g;
+
+/** 封装带超时的 fetch */
+async function fetchWithTimeout(url: string, options: RequestInit, timeout = 10000): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
   try {
-    const apiBaseUrl = apiSite.api;
-    const apiUrl =
-      apiBaseUrl + API_CONFIG.search.path + encodeURIComponent(query);
-    const apiName = apiSite.name;
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-    const response = await fetch(apiUrl, {
-      headers: API_CONFIG.search.headers,
-      signal: controller.signal,
-    });
-
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
     clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      return;
-    }
-
-    const data = await response.json();
-    if (!data || !data.list || !Array.isArray(data.list)) {
-      return;
-    }
-
-    // 第一页结果
-    const firstPageResults = data.list.map((item: ApiSearchItem) =>
-      mapItemToResult(item, apiSite, apiName)
-    );
-    yield firstPageResults;
-
-    // 拉取更多页
-    const config = await getConfig();
-    const MAX_SEARCH_PAGES: number =
-      config.SiteConfig.SearchDownstreamMaxPage;
-
-    const pageCount = data.pagecount || 1;
-    const pagesToFetch = Math.min(pageCount - 1, MAX_SEARCH_PAGES - 1);
-
-    for (let page = 2; page <= pagesToFetch + 1; page++) {
-      const pageUrl =
-        apiBaseUrl +
-        API_CONFIG.search.pagePath
-          .replace('{query}', encodeURIComponent(query))
-          .replace('{page}', page.toString());
-
-      const pageRes = await fetch(pageUrl, { headers: API_CONFIG.search.headers });
-      if (!pageRes.ok) continue;
-
-      const pageData = await pageRes.json();
-      if (pageData?.list) {
-        const results = pageData.list.map((item: ApiSearchItem) =>
-          mapItemToResult(item, apiSite, apiName)
-        );
-
-        if (results.length > 0) {
-          yield results; // 每页结果单独 yield
-        }
-      }
-    }
-  } catch (e) {
-    return;
   }
 }
 
-
-function mapItemToResult(item: ApiSearchItem, apiSite: ApiSite, apiName: string): SearchResult {
+/**
+ * 通用的播放源解析
+ * 支持：
+ *  1. vod_play_url (通过 $$$、#、$ 分割)
+ *  2. 内容中的 m3u8 链接（正则提取）
+ */
+function parseEpisodes(vod_play_url?: string, fallbackContent?: string): { episodes: string[]; titles: string[] } {
   let episodes: string[] = [];
   let titles: string[] = [];
 
-  if (item.vod_play_url) {
-    const vod_play_url_array = item.vod_play_url.split('$$$');
-    vod_play_url_array.forEach((url: string) => {
-      const matchEpisodes: string[] = [];
-      const matchTitles: string[] = [];
-      const title_url_array = url.split('#');
-      title_url_array.forEach((title_url: string) => {
-        const episode_title_url = title_url.split('$');
-        if (
-          episode_title_url.length === 2 &&
-          episode_title_url[1].endsWith('.m3u8')
-        ) {
-          matchTitles.push(episode_title_url[0]);
-          matchEpisodes.push(episode_title_url[1]);
+  // 1. 优先解析 vod_play_url
+  if (vod_play_url) {
+    const sources = vod_play_url.split('$$$');
+    sources.forEach((source) => {
+      const currentEpisodes: string[] = [];
+      const currentTitles: string[] = [];
+
+      source.split('#').forEach((entry) => {
+        const [title, url] = entry.split('$');
+        if (url?.endsWith('.m3u8')) {
+          currentTitles.push(title);
+          currentEpisodes.push(url);
         }
       });
-      if (matchEpisodes.length > episodes.length) {
-        episodes = matchEpisodes;
-        titles = matchTitles;
+
+      // 选用分集最多的播放源
+      if (currentEpisodes.length > episodes.length) {
+        episodes = currentEpisodes;
+        titles = currentTitles;
       }
     });
   }
+
+  // 2. 如果没有解析到，尝试 fallback 内容
+  if (episodes.length === 0 && fallbackContent) {
+    episodes = (fallbackContent.match(M3U8_PATTERN) ?? []).map((link: string) =>
+      link.replace(/^\$/, '')
+    );
+    titles = episodes.map((_, i) => (i + 1).toString()); // 默认用序号作为标题
+  }
+
+  return { episodes, titles };
+}
+
+/** 映射 API 数据到 SearchResult */
+function mapItemToResult(item: ApiSearchItem, apiSite: ApiSite, apiName: string): SearchResult {
+  const { episodes, titles } = parseEpisodes(item.vod_play_url, item.vod_content);
 
   return {
     id: item.vod_id.toString(),
@@ -128,174 +93,176 @@ function mapItemToResult(item: ApiSearchItem, apiSite: ApiSite, apiName: string)
   };
 }
 
-
-// 匹配 m3u8 链接的正则
-const M3U8_PATTERN = /(https?:\/\/[^"'\s]+?\.m3u8)/g;
-
-export async function getDetailFromApi(
+/** API 搜索流 */
+export async function* searchFromApiStream(
   apiSite: ApiSite,
-  id: string
-): Promise<SearchResult> {
-  if (apiSite.detail) {
-    return handleSpecialSourceDetail(id, apiSite);
+  query: string,
+  parallel = true
+): AsyncGenerator<SearchResult[], void, unknown> {
+  try {
+    const apiUrl = apiSite.api + API_CONFIG.search.path + encodeURIComponent(query);
+
+    const response = await fetchWithTimeout(apiUrl, { headers: API_CONFIG.search.headers }, 30000);
+    if (!response.ok) return;
+
+    const data = await response.json();
+    if (!Array.isArray(data?.list)) return;
+
+    // 第一页
+    yield data.list.map((item: ApiSearchItem) => mapItemToResult(item, apiSite, apiSite.name));
+
+    // 分页
+    const { SiteConfig } = await getConfig();
+    const maxPages = SiteConfig.SearchDownstreamMaxPage;
+    const pageCount = data.pagecount || 1;
+    const pagesToFetch = Math.min(pageCount, maxPages);
+
+    if (pagesToFetch > 1) {
+      if (parallel) {
+        // ------------------ 并行模式 ------------------
+        const pagePromises: Promise<{ page: number; results: SearchResult[] } | null>[] = [];
+
+        for (let page = 2; page <= pagesToFetch; page++) {
+          const pageUrl =
+            apiSite.api +
+            API_CONFIG.search.pagePath
+              .replace('{query}', encodeURIComponent(query))
+              .replace('{page}', page.toString());
+
+          const promise = (async () => {
+            const pageRes = await fetchWithTimeout(pageUrl, { headers: API_CONFIG.search.headers });
+            if (!pageRes.ok) return null;
+
+            const pageData = await pageRes.json();
+            if (!Array.isArray(pageData?.list)) return null;
+
+            const results = pageData.list.map((item: ApiSearchItem) =>
+              mapItemToResult(item, apiSite, apiSite.name)
+            );
+            return { page, results };
+          })();
+
+          pagePromises.push(promise);
+        }
+
+        const settled = await Promise.all(pagePromises);
+        for (const res of settled
+          .filter((r): r is { page: number; results: SearchResult[] } => !!r && r.results.length > 0)
+          .sort((a, b) => a.page - b.page)) {
+          yield res.results;
+        }
+      } else {
+        // ------------------ 顺序模式 ------------------
+        for (let page = 2; page <= pagesToFetch; page++) {
+          const pageUrl =
+            apiSite.api +
+            API_CONFIG.search.pagePath
+              .replace('{query}', encodeURIComponent(query))
+              .replace('{page}', page.toString());
+
+          const pageRes = await fetchWithTimeout(pageUrl, { headers: API_CONFIG.search.headers });
+          if (!pageRes.ok) continue;
+
+          const pageData = await pageRes.json();
+          if (Array.isArray(pageData?.list)) {
+            const results = pageData.list.map((item: ApiSearchItem) =>
+              mapItemToResult(item, apiSite, apiSite.name)
+            );
+            if (results.length > 0) yield results;
+          }
+        }
+      }
+    }
+  } catch {
+    return;
   }
+}
+
+
+/** 获取详情 */
+export async function getDetailFromApi(apiSite: ApiSite, id: string): Promise<SearchResult> {
+  if (apiSite.detail) return handleSpecialSourceDetail(id, apiSite);
 
   const detailUrl = `${apiSite.api}${API_CONFIG.detail.path}${id}`;
+  const response = await fetchWithTimeout(detailUrl, { headers: API_CONFIG.detail.headers });
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-  const response = await fetch(detailUrl, {
-    headers: API_CONFIG.detail.headers,
-    signal: controller.signal,
-  });
-
-  clearTimeout(timeoutId);
-
-  if (!response.ok) {
-    throw new Error(`详情请求失败: ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`详情请求失败: ${response.status}`);
 
   const data = await response.json();
-
-  if (
-    !data ||
-    !data.list ||
-    !Array.isArray(data.list) ||
-    data.list.length === 0
-  ) {
+  if (!Array.isArray(data?.list) || data.list.length === 0) {
     throw new Error('获取到的详情内容无效');
   }
 
-  const videoDetail = data.list[0];
-  let episodes: string[] = [];
-  let titles: string[] = [];
-
-  // 处理播放源拆分
-  if (videoDetail.vod_play_url) {
-    // 先用 $$$ 分割
-    const vod_play_url_array = videoDetail.vod_play_url.split('$$$');
-    // 分集之间#分割，标题和播放链接 $ 分割
-    vod_play_url_array.forEach((url: string) => {
-      const matchEpisodes: string[] = [];
-      const matchTitles: string[] = [];
-      const title_url_array = url.split('#');
-      title_url_array.forEach((title_url: string) => {
-        const episode_title_url = title_url.split('$');
-        if (
-          episode_title_url.length === 2 &&
-          episode_title_url[1].endsWith('.m3u8')
-        ) {
-          matchTitles.push(episode_title_url[0]);
-          matchEpisodes.push(episode_title_url[1]);
-        }
-      });
-      if (matchEpisodes.length > episodes.length) {
-        episodes = matchEpisodes;
-        titles = matchTitles;
-      }
-    });
-  }
-
-  // 如果播放源为空，则尝试从内容中解析 m3u8
-  if (episodes.length === 0 && videoDetail.vod_content) {
-    const matches = videoDetail.vod_content.match(M3U8_PATTERN) || [];
-    episodes = matches.map((link: string) => link.replace(/^\$/, ''));
-  }
+  const video = data.list[0];
+  const { episodes, titles } = parseEpisodes(video.vod_play_url, video.vod_content);
 
   return {
     id: id.toString(),
-    title: videoDetail.vod_name,
-    poster: videoDetail.vod_pic,
+    title: video.vod_name,
+    poster: video.vod_pic,
     episodes,
     episodes_titles: titles,
     source: apiSite.key,
     source_name: apiSite.name,
-    class: videoDetail.vod_class,
-    year: videoDetail.vod_year
-      ? videoDetail.vod_year.match(/\d{4}/)?.[0] || ''
-      : 'unknown',
-    desc: cleanHtmlTags(videoDetail.vod_content),
-    type_name: videoDetail.type_name,
-    douban_id: videoDetail.vod_douban_id,
+    class: video.vod_class,
+    year: video.vod_year?.match(/\d{4}/)?.[0] || 'unknown',
+    desc: cleanHtmlTags(video.vod_content),
+    type_name: video.type_name,
+    douban_id: video.vod_douban_id,
   };
 }
 
-async function handleSpecialSourceDetail(
-  id: string,
-  apiSite: ApiSite
-): Promise<SearchResult> {
+/** 特殊站点详情处理 */
+async function handleSpecialSourceDetail(id: string, apiSite: ApiSite): Promise<SearchResult> {
   const detailUrl = `${apiSite.detail}/index.php/vod/detail/id/${id}.html`;
+  const response = await fetchWithTimeout(detailUrl, { headers: API_CONFIG.detail.headers });
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-  const response = await fetch(detailUrl, {
-    headers: API_CONFIG.detail.headers,
-    signal: controller.signal,
-  });
-
-  clearTimeout(timeoutId);
-
-  if (!response.ok) {
-    throw new Error(`详情页请求失败: ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`详情页请求失败: ${response.status}`);
 
   const html = await response.text();
+
+  // 特定站点规则（优先）
   let matches: string[] = [];
-
   if (apiSite.key === 'ffzy') {
-    const ffzyPattern =
-      /\$(https?:\/\/[^"'\s]+?\/\d{8}\/\d+_[a-f0-9]+\/index\.m3u8)/g;
-    matches = html.match(ffzyPattern) || [];
+    matches = html.match(/\$(https?:\/\/[^"'\s]+?\/\d{8}\/\d+_[a-f0-9]+\/index\.m3u8)/g) || [];
   }
 
+  // 通用正则
   if (matches.length === 0) {
-    const generalPattern = /\$(https?:\/\/[^"'\s]+?\.m3u8)/g;
-    matches = html.match(generalPattern) || [];
+    matches = html.match(/\$(https?:\/\/[^"'\s]+?\.m3u8)/g) || [];
   }
 
-  // 去重并清理链接前缀
-  matches = Array.from(new Set(matches)).map((link: string) => {
-    link = link.substring(1); // 去掉开头的 $
-    const parenIndex = link.indexOf('(');
-    return parenIndex > 0 ? link.substring(0, parenIndex) : link;
+  // 去重并清理
+  matches = Array.from(new Set(matches)).map((link) => {
+    const clean = link.substring(1); // 去掉 $
+    const parenIndex = clean.indexOf('(');
+    return parenIndex > 0 ? clean.substring(0, parenIndex) : clean;
   });
 
-  // 根据 matches 数量生成剧集标题
-  const episodes_titles = Array.from({ length: matches.length }, (_, i) =>
-    (i + 1).toString()
-  );
+  // 如果依旧没解析到，用 parseEpisodes fallback
+  if (matches.length === 0) {
+    const { episodes } = parseEpisodes(undefined, html);
+    matches = episodes;
+  }
 
-  // 提取标题
-  const titleMatch = html.match(/<h1[^>]*>([^<]+)<\/h1>/);
-  const titleText = titleMatch ? titleMatch[1].trim() : '';
+  const episodes_titles = matches.map((_, i) => (i + 1).toString());
 
-  // 提取描述
-  const descMatch = html.match(
-    /<div[^>]*class=["']sketch["'][^>]*>([\s\S]*?)<\/div>/
-  );
-  const descText = descMatch ? cleanHtmlTags(descMatch[1]) : '';
-
-  // 提取封面
-  const coverMatch = html.match(/(https?:\/\/[^"'\s]+?\.jpg)/g);
-  const coverUrl = coverMatch ? coverMatch[0].trim() : '';
-
-  // 提取年份
-  const yearMatch = html.match(/>(\d{4})</);
-  const yearText = yearMatch ? yearMatch[1] : 'unknown';
+  const title = html.match(/<h1[^>]*>([^<]+)<\/h1>/)?.[1]?.trim() || '';
+  const desc = cleanHtmlTags(html.match(/<div[^>]*class=["']sketch["'][^>]*>([\s\S]*?)<\/div>/)?.[1] || '');
+  const cover = html.match(/(https?:\/\/[^"'\s]+?\.jpg)/)?.[0]?.trim() || '';
+  const year = html.match(/>(\d{4})</)?.[1] || 'unknown';
 
   return {
     id,
-    title: titleText,
-    poster: coverUrl,
+    title,
+    poster: cover,
     episodes: matches,
     episodes_titles,
     source: apiSite.key,
     source_name: apiSite.name,
     class: '',
-    year: yearText,
-    desc: descText,
+    year,
+    desc,
     type_name: '',
     douban_id: 0,
   };

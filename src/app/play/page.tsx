@@ -111,9 +111,6 @@ function PlayPageClient() {
   const [searchTitle] = useState(searchParams.get('stitle') || '');
   const [searchType] = useState(searchParams.get('stype') || '');
 
-  // 缓存是否过期
-  let CacheExpired = false;
-
   // 是否需要优选
   const [needPrefer, setNeedPrefer] = useState(
     searchParams.get('prefer') === 'true'
@@ -694,6 +691,25 @@ function PlayPageClient() {
     ): Promise<SearchResult[]> => {
       setSourceSearchLoading(true);
       setSourceSearchError('');
+
+      // 清理过期缓存
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(CACHE_KEY_PREFIX)) {
+          const cachedItem = localStorage.getItem(key);
+          if (cachedItem) {
+            try {
+              const parsedItem = JSON.parse(cachedItem) as CachedResult;
+              if (Date.now() - parsedItem.timestamp >= CACHE_TTL) {
+                localStorage.removeItem(key); // 删除过期缓存
+              }
+            } catch (e) {
+              // 如果解析失败也删除
+              localStorage.removeItem(key);
+            }
+          }
+        }
+      }
     
       const cacheKey = `${CACHE_KEY_PREFIX}${query.trim().toLowerCase()}`;
       let aggregatedResults: SearchResult[] = [];
@@ -707,13 +723,14 @@ function PlayPageClient() {
     
         if (cached) {
           parsed = JSON.parse(cached) as CachedResult;
-          if (Date.now() - parsed.timestamp < CACHE_TTL) {
+          // 判断 timestamp 是否过期，同时检查 results 中的 id 是否一致
+          const idsMatch = parsed.results.every((item, index) => item.title === videoTitle);
+          if (idsMatch) {
             aggregatedResults = [...parsed.results];
             setAvailableSources(aggregatedResults);
             setSourceSearchLoading(false);
             onResult?.(parsed.results); // 先回调缓存
           } else {
-            CacheExpired = true;
             parsed.reSearch = true; // 用对象标记
           }
         }
@@ -854,8 +871,23 @@ function PlayPageClient() {
         if (!started && newResults.length > 0) {
           started = true;
           if (timeoutId) clearTimeout(timeoutId); // 有结果就清理超时
-    
-          const detailData = newResults[0];
+
+          let detailData = null;
+          // 从缓存中读取当前源和 ID
+          const cachedSource = localStorage.getItem('currentSource');
+          const cachedId = localStorage.getItem('currentId');
+
+          // 如果缓存存在，就优先找这个源
+          if (cachedSource && cachedId) {
+            detailData = newResults.find(
+              (item) => item.source === cachedSource && item.id === cachedId
+            ) || null;
+          }
+
+          // 如果没找到，就退回到第一个源
+          if (!detailData) {
+            detailData = newResults[0];
+          }
     
           setCurrentSource(detailData.source);
           setCurrentId(detailData.id);
@@ -927,17 +959,6 @@ function PlayPageClient() {
       if (!currentSource || !currentId) return;
 
       try {
-        if(!CacheExpired){
-          // 从缓存中读取当前源和 ID
-          const cachedSource = localStorage.getItem('currentSource');
-          const cachedId = localStorage.getItem('currentId');
-
-          if (cachedSource && cachedId) {
-            setCurrentSource(cachedSource);
-            setCurrentId(cachedId);
-          }
-        }
-
         const config = await getSkipConfig(currentSource, currentId);
         if (config) {
           setSkipConfig(config);
@@ -959,7 +980,7 @@ function PlayPageClient() {
     try {
       // 保存当前源和 ID 到缓存
       localStorage.setItem('currentSource', newSource);
-      localStorage.setItem('currentId', newId);      
+      localStorage.setItem('currentId', newId);
       // 显示换源加载状态
       setVideoLoadingStage('sourceChanging');
       setIsVideoLoading(true);
