@@ -11,6 +11,49 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "2.2.8",
+    date: "2025-08-22",
+    added: [
+      // 无新增内容
+    ],
+    changed: [
+    "转移视频源优选按钮至播放页面"
+    ],
+    fixed: [
+    "优化播放换源",
+    "优化失败源显示逻辑",
+    "修复搜索路由问题"
+    ]
+  },
+  {
+    version: "2.2.1",
+    date: "2025-08-22",
+    added: [
+    "搜索结果展示失败源"
+    ],
+    changed: [
+    "移除无效代理Cors Anywhere"
+    ],
+    fixed: [
+    "修复一次搜索两个请求的问题"
+    ]
+  },
+  {
+    version: "2.1.0",
+    date: "2025-08-21",
+    added: [
+    "支持流式搜索搜索模式",
+    "搜索结果展示视频源"
+    ],
+    changed: [
+    "重新支持localstorage",
+    "独立缓存播放源"
+    ],
+    fixed: [
+    "修复视频播放缓存逻辑问题"
+    ]
+  },
+  {
     version: "2.0.1",
     date: "2025-08-13",
     added: [

@@ -65,12 +65,9 @@ async function fetchWithTimeout(
   const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
 
   // 检查是否使用代理
-  const finalUrl =
-    proxyUrl === 'https://cors-anywhere.com/'
-      ? `${proxyUrl}${url}`
-      : proxyUrl
-      ? `${proxyUrl}${encodeURIComponent(url)}`
-      : url;
+  const finalUrl = proxyUrl
+    ? `${proxyUrl}${encodeURIComponent(url)}`
+    : url;
 
   const fetchOptions: RequestInit = {
     signal: controller.signal,
@@ -98,7 +95,6 @@ function getDoubanProxyConfig(): {
     | 'cors-proxy-zwei'
     | 'cmliussss-cdn-tencent'
     | 'cmliussss-cdn-ali'
-    | 'cors-anywhere'
     | 'custom';
   proxyUrl: string;
 } {
@@ -204,8 +200,7 @@ export async function getDoubanCategories(
       return fetchDoubanCategories(params, '', true, false);
     case 'cmliussss-cdn-ali':
       return fetchDoubanCategories(params, '', false, true);
-    case 'cors-anywhere':
-      return fetchDoubanCategories(params, 'https://cors-anywhere.com/');
+
     case 'custom':
       return fetchDoubanCategories(params, proxyUrl);
     case 'direct':
@@ -237,8 +232,7 @@ export async function getDoubanList(
       return fetchDoubanList(params, '', true, false);
     case 'cmliussss-cdn-ali':
       return fetchDoubanList(params, '', false, true);
-    case 'cors-anywhere':
-      return fetchDoubanList(params, 'https://cors-anywhere.com/');
+
     case 'custom':
       return fetchDoubanList(params, proxyUrl);
     case 'direct':
@@ -357,8 +351,7 @@ export async function getDoubanRecommends(
       return fetchDoubanRecommends(params, '', true, false);
     case 'cmliussss-cdn-ali':
       return fetchDoubanRecommends(params, '', false, true);
-    case 'cors-anywhere':
-      return fetchDoubanRecommends(params, 'https://cors-anywhere.com/');
+
     case 'custom':
       return fetchDoubanRecommends(params, proxyUrl);
     case 'direct':

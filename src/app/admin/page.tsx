@@ -1429,7 +1429,6 @@ const SiteConfigComponent = ({ config }: { config: AdminConfig | null }) => {
       label: '豆瓣 CDN By CMLiussss（腾讯云）',
     },
     { value: 'cmliussss-cdn-ali', label: '豆瓣 CDN By CMLiussss（阿里云）' },
-    { value: 'cors-anywhere', label: 'Cors Anywhere（20 qpm）' },
     { value: 'custom', label: '自定义代理' },
   ];
 

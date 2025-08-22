@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { getAuthInfoFromCookie } from '@/lib/auth';
-import { getConfig, refineConfig } from '@/lib/config';
+import { getConfig } from '@/lib/config';
 import { getStorage } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // 检查用户权限
-    let adminConfig = await getConfig();
+    const adminConfig = await getConfig();
     const storage = getStorage();
 
     if (username !== process.env.USERNAME) {
@@ -59,11 +59,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    adminConfig.ConfigFile = configFile;
-    adminConfig = refineConfig(adminConfig);
+    // 创建新的配置对象，避免直接修改原对象
+    const updatedConfig = {
+      ...adminConfig,
+      ConfigFile: configFile
+    };
+    
     // 更新配置文件
     if (storage && typeof (storage as any).setAdminConfig === 'function') {
-      await (storage as any).setAdminConfig(adminConfig);
+      await (storage as any).setAdminConfig(updatedConfig);
 
       return NextResponse.json({
         success: true,

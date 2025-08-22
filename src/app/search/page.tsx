@@ -14,6 +14,7 @@ import {
 } from '@/lib/db.client';
 import { SearchResult } from '@/lib/types';
 
+import FailedSourcesDisplay from '@/components/FailedSourcesDisplay';
 import PageLayout from '@/components/PageLayout';
 import SearchSuggestions from '@/components/SearchSuggestions';
 import VideoCard from '@/components/VideoCard';
@@ -31,6 +32,7 @@ function SearchPageClient() {
   const [showResults, setShowResults] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [failedSources, setFailedSources] = useState<{ name: string; key: string; error: string }[]>([]);
 
   // 获取默认聚合设置
   const getDefaultAggregate = () => {
@@ -44,6 +46,17 @@ function SearchPageClient() {
   const [viewMode, setViewMode] = useState<'agg' | 'all'>(() =>
     getDefaultAggregate() ? 'agg' : 'all'
   );
+
+  // 流式搜索开关（仅读取设置中的默认值）
+  const getDefaultStream = () => {
+    if (typeof window !== 'undefined') {
+      const defaultSaved = localStorage.getItem('defaultStreamSearch');
+      if (defaultSaved !== null) return defaultSaved === 'true';
+    }
+    return true;
+  };
+  const [streamEnabled, setStreamEnabled] = useState<boolean>(() => getDefaultStream());
+  // 不再将页面内切换写入任何本地键，始终以 defaultStreamSearch 作为默认来源
 
   // 聚合后的结果
   const aggregatedResults = useMemo(() => {
@@ -66,7 +79,7 @@ function SearchPageClient() {
       const bYear = b[1][0].year;
       if (aYear === bYear) return a[0].localeCompare(b[0]);
       if (aYear === 'unknown') return 1;
-      if (bYear === 'unknown') return -1;
+      if (bYear === 'unknown') return 1;
       return aYear > bYear ? -1 : 1;
     });
   }, [searchResults]);
@@ -128,56 +141,79 @@ function SearchPageClient() {
     try {
       setIsLoading(true);
       setSearchResults([]);
+      setFailedSources([]);
       setShowResults(true);
 
-      const response = await fetch(`/api/search?q=${encodeURIComponent(query.trim())}`, {
+      const enableStream = streamEnabled;
+
+      const params = new URLSearchParams({ q: query.trim() });
+      if (!enableStream) params.set('stream', '0');
+
+      const response = await fetch(`/api/search?${params.toString()}`, {
         signal: controller.signal,
       });
-      if (!response.body) return;
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let done = false;
-      let buffer = '';
-      let firstResult = true;
+      if (!enableStream) {
+        // 非流式：一次性获取并基于是否为空由服务端设置缓存头
+        const json = await response.json();
+        const finalResults = (json.aggregatedResults || []) as SearchResult[];
+        const finalFailedSources = (json.failedSources || []) as { name: string; key: string; error: string }[];
+        setSearchResults(finalResults);
+        setFailedSources(finalFailedSources);
+        setIsLoading(false);
+      } else {
+        // 流式：逐行解析
+        if (!response.body) return;
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let done = false;
+        let buffer = '';
+        let firstResult = true;
 
-      while (!done) {
-        const { value, done: readerDone } = await reader.read();
-        done = readerDone;
+        while (!done) {
+          const { value, done: readerDone } = await reader.read();
+          done = readerDone;
 
-        if (value) {
-          buffer += decoder.decode(value, { stream: true });
+          if (value) {
+            buffer += decoder.decode(value, { stream: true });
 
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
 
-          for (const line of lines) {
-            if (!line.trim()) continue;
-            try {
-              const json = JSON.parse(line);
-              if (json.pageResults && json.pageResults.length > 0) {
-                setSearchResults((prev) => [...prev, ...json.pageResults]);
-                if (firstResult) {
-                  setIsLoading(false);
-                  firstResult = false;
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              try {
+                const json = JSON.parse(line);
+                if (json.pageResults && json.pageResults.length > 0) {
+                  setSearchResults((prev) => [...prev, ...json.pageResults]);
+                  if (firstResult) {
+                    setIsLoading(false);
+                    firstResult = false;
+                  }
                 }
+                if (json.failedSources) {
+                  setFailedSources(json.failedSources);
+                }
+              } catch (err) {
+                console.warn('解析流式结果失败', err, line);
               }
-            } catch (err) {
-              console.warn('解析流式结果失败', err, line);
             }
           }
         }
-      }
 
-      // 处理最后一段
-      if (buffer.trim()) {
-        try {
-          const json = JSON.parse(buffer);
-          if (json.pageResults) {
-            setSearchResults((prev) => [...prev, ...json.pageResults]);
+        // 处理最后一段
+        if (buffer.trim()) {
+          try {
+            const json = JSON.parse(buffer);
+            if (json.pageResults) {
+              setSearchResults((prev) => [...prev, ...json.pageResults]);
+            }
+            if (json.failedSources) {
+              setFailedSources(json.failedSources);
+            }
+          } catch (err) {
+            console.warn('最后一段解析失败', err, buffer);
           }
-        } catch (err) {
-          console.warn('最后一段解析失败', err, buffer);
         }
       }
 
@@ -211,9 +247,12 @@ function SearchPageClient() {
     setShowResults(true);
     setShowSuggestions(false);
 
-    router.push(`/search?q=${encodeURIComponent(trimmed)}`);
     fetchSearchResults(trimmed);
     addSearchHistory(trimmed);
+
+    const newUrl = `/search?q=${encodeURIComponent(trimmed)}`;
+    window.history.pushState({}, '', newUrl); // 改 URL 并入历史
+    
   };
 
   const handleSuggestionSelect = (suggestion: string) => {
@@ -222,9 +261,11 @@ function SearchPageClient() {
     setIsLoading(true);
     setShowResults(true);
 
-    router.push(`/search?q=${encodeURIComponent(suggestion)}`);
     fetchSearchResults(suggestion);
     addSearchHistory(suggestion);
+    const newUrl = `/search?q=${encodeURIComponent(suggestion)}`;
+    window.history.pushState({}, '', newUrl); // 改 URL 并入历史
+    
   };
 
   const scrollToTop = () => {
@@ -269,22 +310,44 @@ function SearchPageClient() {
           ) : showResults ? (
             <section className='mb-12'>
               <div className='mb-8 flex items-center justify-between'>
-                <h2 className='text-xl font-bold text-gray-800 dark:text-gray-200'>
-                  搜索结果
-                </h2>
-                <label className='flex items-center gap-2 cursor-pointer select-none'>
-                  <span className='text-sm text-gray-700 dark:text-gray-300'>聚合</span>
-                  <div className='relative'>
-                    <input
-                      type='checkbox'
-                      className='sr-only peer'
-                      checked={viewMode === 'agg'}
-                      onChange={() => setViewMode(viewMode === 'agg' ? 'all' : 'agg')}
-                    />
-                    <div className='w-9 h-5 bg-gray-300 rounded-full peer-checked:bg-green-500 transition-colors dark:bg-gray-600'></div>
-                    <div className='absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4'></div>
-                  </div>
-                </label>
+                <div className='flex items-center gap-4'>
+                  <h2 className='text-xl font-bold text-gray-800 dark:text-gray-200'>
+                    搜索结果
+                  </h2>
+                  {/* 显示失败的数据源 */}
+                  <FailedSourcesDisplay 
+                    failedSources={failedSources}
+                  />
+                </div>
+                <div className='flex items-center gap-4'>
+                  <label className='flex items-center gap-2 cursor-pointer select-none'>
+                    <span className='text-sm text-gray-700 dark:text-gray-300'>流式</span>
+                    <div className='relative'>
+                      <input
+                        type='checkbox'
+                        className='sr-only peer'
+                        checked={streamEnabled}
+                        onChange={() => setStreamEnabled(!streamEnabled)}
+                      />
+                      <div className='w-9 h-5 bg-gray-300 rounded-full peer-checked:bg-green-500 transition-colors dark:bg-gray-600'></div>
+                      <div className='absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4'></div>
+                    </div>
+                  </label>
+
+                  <label className='flex items-center gap-2 cursor-pointer select-none'>
+                    <span className='text-sm text-gray-700 dark:text-gray-300'>聚合</span>
+                    <div className='relative'>
+                      <input
+                        type='checkbox'
+                        className='sr-only peer'
+                        checked={viewMode === 'agg'}
+                        onChange={() => setViewMode(viewMode === 'agg' ? 'all' : 'agg')}
+                      />
+                      <div className='w-9 h-5 bg-gray-300 rounded-full peer-checked:bg-green-500 transition-colors dark:bg-gray-600'></div>
+                      <div className='absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4'></div>
+                    </div>
+                  </label>
+                </div>
               </div>
 
               <div
