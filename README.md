@@ -1,4 +1,4 @@
-# MoonTV(生前)
+# MoonTV(Branch)
 
 <div align="center">
   <img src="public/logo.png" alt="LibreTV Logo" width="120">
@@ -20,7 +20,7 @@
 
 ## ✨ 功能特性
 
-- 🔍 **多源聚合搜索**：~~内置数十个免费资源站点，一次搜索立刻返回全源结果~~。
+- 🔍 **多源聚合搜索**：增加流式搜索快速返回结果。
 - 📄 **丰富详情页**：支持剧集列表、演员、年份、简介等完整信息展示。
 - ▶️ **流畅在线播放**：集成 HLS.js & ArtPlayer。
 - ❤️ **收藏 + 继续观看**：支持 Redis/Upstash 存储，多端同步进度。
@@ -38,17 +38,29 @@
 
 ## 🗺 目录
 
-- [技术栈](#技术栈)
-- [部署](#部署)
-- [Docker Compose 最佳实践](#Docker-Compose-最佳实践)
-- [环境变量](#环境变量)
-- [配置说明](#配置说明)
-- [管理员配置](#管理员配置)
-- [AndroidTV 使用](#AndroidTV-使用)
-- [Roadmap](#roadmap)
-- [安全与隐私提醒](#安全与隐私提醒)
-- [License](#license)
-- [致谢](#致谢)
+- [MoonTV(Branch)](#moontvbranch)
+  - [✨ 功能特性](#-功能特性)
+  - [🗺 目录](#-目录)
+  - [技术栈](#技术栈)
+  - [部署](#部署)
+    - [Vercel 部署](#vercel-部署)
+      - [普通部署（localstorage）](#普通部署localstorage)
+      - [Upstash Redis 支持](#upstash-redis-支持)
+    - [Netlify 部署](#netlify-部署)
+      - [普通部署（localstorage）](#普通部署localstorage-1)
+      - [Upstash Redis 支持](#upstash-redis-支持-1)
+    - [Docker 部署](#docker-部署)
+  - [环境变量](#环境变量)
+  - [配置说明](#配置说明)
+  - [管理员配置](#管理员配置)
+  - [AndroidTV 使用](#androidtv-使用)
+  - [Roadmap](#roadmap)
+  - [安全与隐私提醒](#安全与隐私提醒)
+    - [请设置密码保护并关闭公网注册](#请设置密码保护并关闭公网注册)
+    - [部署要求](#部署要求)
+    - [重要声明](#重要声明)
+  - [License](#license)
+  - [致谢](#致谢)
 
 ## 技术栈
 
@@ -76,11 +88,9 @@
 
 ☑️：理论上支持，未测试
 
-**该项目仅支持通过非 localstorage 存储的部署方式**
-
 ### Vercel 部署
 
-#### 普通部署（~~localstorage~~）
+#### 普通部署（localstorage）
 
 1. **Fork** 本仓库到你的 GitHub 账户。
 2. 登陆 [Vercel](https://vercel.com/)，点击 **Add New → Project**，选择 Fork 后的仓库。
@@ -102,7 +112,7 @@
 
 ### Netlify 部署
 
-#### 普通部署（~~localstorage~~）
+#### 普通部署（localstorage）
 
 1. **Fork** 本仓库到你的 GitHub 账户。
 2. 登陆 [Netlify](https://www.netlify.com/)，点击 **Add New project → Importing an existing project**，授权 Github，选择 Fork 后的仓库。
@@ -123,85 +133,7 @@
 
 ### Docker 部署
 
-#### 1. 直接运行（最简单，~~localstorage~~）
-
-```bash
-# 拉取预构建镜像
-# 推荐使用具体版本号标签，确保稳定性
-docker pull ghcr.io/lunatechlab/moontv:1.0.4
-# 或拉取最新版本
-docker pull ghcr.io/lunatechlab/moontv:latest
-
-# 运行容器
-# -d: 后台运行  -p: 映射端口 3000 -> 3000
-docker run -d --name moontv -p 3000:3000 --env PASSWORD=your_password ghcr.io/lunatechlab/moontv:latest
-```
-
-#### 可用标签
-
-- `ghcr.io/lunatechlab/moontv:1.0.4` - 具体版本号，推荐用于生产环境
-- `ghcr.io/lunatechlab/moontv:latest` - 最新版本，可能包含最新功能但也可能有未测试的变化
-- `ghcr.io/lunatechlab/moontv:pr-{number}` - PR 构建版本，用于测试新功能
-
-访问 `http://服务器 IP:3000` 即可。（需自行到服务器控制台放通 `3000` 端口）
-
-## Docker Compose 最佳实践
-
-若你使用 docker compose 部署，以下是一些 compose 示例
-
-### ~~local storage 版本~~
-
-```yaml
-services:
-  moontv-core:
-    image: ghcr.io/lunatechlab/moontv:latest
-    container_name: moontv-core
-    restart: unless-stopped
-    ports:
-      - '3000:3000'
-    environment:
-      - PASSWORD=your_password
-    # 如需自定义配置，可挂载文件
-    # volumes:
-    #   - ./config.json:/app/config.json:ro
-```
-
-### Redis 版本（推荐，多账户数据隔离，跨设备同步）
-
-```yaml
-services:
-  moontv-core:
-    image: ghcr.io/lunatechlab/moontv:latest
-    container_name: moontv-core
-    restart: unless-stopped
-    ports:
-      - '3000:3000'
-    environment:
-      - USERNAME=admin
-      - PASSWORD=admin_password
-      - NEXT_PUBLIC_STORAGE_TYPE=redis
-      - REDIS_URL=redis://moontv-redis:6379
-      - NEXT_PUBLIC_ENABLE_REGISTER=true
-    networks:
-      - moontv-network
-    depends_on:
-      - moontv-redis
-    # 如需自定义配置，可挂载文件
-    # volumes:
-    #   - ./config.json:/app/config.json:ro
-  moontv-redis:
-    image: redis:alpine
-    container_name: moontv-redis
-    restart: unless-stopped
-    networks:
-      - moontv-network
-    # 如需持久化
-    # volumes:
-    #   - ./data:/data
-networks:
-  moontv-network:
-    driver: bridge
-```
+https://github.com/MoonTechLab/LunaTV
 
 ## 环境变量
 
@@ -229,7 +161,7 @@ NEXT_PUBLIC_DOUBAN_PROXY_TYPE 选项解释：
 - cors-proxy-zwei: 浏览器向 cors proxy 请求豆瓣数据，该 cors proxy 由 [Zwei](https://github.com/bestzwei) 搭建
 - cmliussss-cdn-tencent: 浏览器向豆瓣 CDN 请求数据，该 CDN 由 [CMLiussss](https://github.com/cmliu) 搭建，并由腾讯云 cdn 提供加速
 - cmliussss-cdn-ali: 浏览器向豆瓣 CDN 请求数据，该 CDN 由 [CMLiussss](https://github.com/cmliu) 搭建，并由阿里云 cdn 提供加速
-- cors-anywhere: 浏览器向 cors proxy 请求豆瓣数据，该 cors proxy 为公共服务 [cors-anywhere](https://cors-anywhere.com)，限制每分钟 20 次请求
+
 - custom: 用户自定义 proxy，由 NEXT_PUBLIC_DOUBAN_PROXY 定义
 
 NEXT_PUBLIC_DOUBAN_IMAGE_PROXY_TYPE 选项解释：
@@ -243,7 +175,8 @@ NEXT_PUBLIC_DOUBAN_IMAGE_PROXY_TYPE 选项解释：
 
 ## 配置说明
 
-所有可自定义项集中在根目录的 `config.json` 中(现已删除。可在项目根目录自建`config.json`，或在网页中自行配置数据源)：
+如果为localstorage模式所有可自定义项集中在根目录的 `config.json` 中(localstorage模式)
+非localstorage可在部署好的网页中直接配置
 
 ```json
 {
