@@ -15,6 +15,20 @@ export default function FailedSourcesDisplay({ failedSources }: FailedSourcesDis
   const [showDetails, setShowDetails] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // 错误颜色映射
+  const getErrorColor = (error: string) => {
+    switch (error) {
+      case '结果被过滤':
+        return 'text-green-600 dark:text-green-400';
+      case '无搜索结果':
+        return 'text-red-600 dark:text-red-400';
+      case '未知的错误':
+        return 'text-gray-600 dark:text-gray-400';
+      default:
+        return 'text-amber-700 dark:text-amber-300';
+    }
+  };
+
   // 点击外部关闭详情
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -70,7 +84,7 @@ export default function FailedSourcesDisplay({ failedSources }: FailedSourcesDis
                     {source.key}
                   </span>
                 </div>
-                <p className="text-xs text-amber-700 dark:text-amber-300 break-words">
+                <p className={`text-xs break-words ${getErrorColor(source.error)}`}>
                   错误信息: {source.error}
                 </p>
               </div>
