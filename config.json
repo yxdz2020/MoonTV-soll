@@ -1,38 +1,69 @@
 {
   "cache_time": 7200,
   "api_site": {
-  "av155zy": { "api": "https://155api.com/api.php/provide/vod", "name": "AV-155资源", "detail": "https://155api.com" },
-  "avbwzy": { "api": "https://api.bwzyz.com/api.php/provide/vod", "name": "AV-百万资源", "detail": "https://api.bwzyz.com" },
-  "av91md": { "api": "https://91md.me/api.php/provide/vod", "name": "AV-91麻豆", "detail": "https://91md.me" },
-  "avaiivin": { "api": "http://lbapiby.com/api.php/provide/vod", "name": "AV-AIvin", "detail": "" },
-  "avjkun": { "api": "https://jkunzyapi.com/api.php/provide/vod", "name": "AV-JKUN资源", "detail": "https://jkunzyapi.com" },
-  "avsouav": { "api": "https://api.souavzy.vip/api.php/provide/vod", "name": "AV-souav资源", "detail": "https://api.souavzy.vip" },
-  "avlebo": { "api": "https://lbapi9.com/api.php/provide/vod", "name": "AV-乐播资源", "detail": "" },
-  "avaosika": { "api": "https://aosikazy.com/api.php/provide/vod", "name": "AV-奥斯卡资源", "detail": "https://aosikazy.com" },
-  "avnaixx": { "api": "https://Naixxzy.com/api.php/provide/vod", "name": "AV-奶香香", "detail": "https://Naixxzy.com" },
-  "avxrbsp": { "api": "https://www.xrbsp.com/api/json.php", "name": "AV-淫水机资源", "detail": "https://www.xrbsp.com" },
-  "avyutu": { "api": "https://apiyutu.com/api.php/provide/vod", "name": "AV-玉兔资源", "detail": "https://apiyutu.com" },
-  "avfanhao": { "api": "http://fhapi9.com/api.php/provide/vod", "name": "AV-番号资源", "detail": "" },
-  "avbaipiao": { "api": "https://www.kxgav.com/api/json.php", "name": "AV-白嫖资源", "detail": "https://www.kxgav.com" },
-  "avjingpin": { "api": "https://www.jingpinx.com/api.php/provide/vod", "name": "AV-精品资源", "detail": "https://www.jingpinx.com" },
-  "avmsnii": { "api": "https://www.msnii.com/api/json.php", "name": "AV-美少女资源", "detail": "https://www.msnii.com" },
-  "avlsb": { "api": "https://apilsbzy1.com/api.php/provide/vod", "name": "AV-老色逼资源", "detail": "https://apilsbzy1.com" },
-  "avsexnguon": { "api": "https://api.sexnguon.com/api.php/provide/vod", "name": "AV-色南国", "detail": "https://api.sexnguon.com" },
-  "avapilj": { "api": "https://apilj.com/api.php/provide/vod", "name": "AV-辣椒资源", "detail": "https://apilj.com" },
-  "avgdlsp": { "api": "https://www.gdlsp.com/api/json.php", "name": "AV-香奶儿资源", "detail": "https://www.gdlsp.com" },
-  "avshayu": { "api": "https://shayuapi.com/api.php/provide/vod", "name": "AV-鲨鱼资源", "detail": "https://shayuapi.com" },
-  "avpgxdy": { "api": "https://www.pgxdy.com/api/json.php", "name": "AV-黄AV资源", "detail": "https://www.pgxdy.com" },
-  "kauiboziyuan": { "api": "https://gayapi.com/api.php/provide/vod", "name": "快播资源网站" },
-  "xingbaziyuan": { "api": "https://xingba111.com/api.php/provide/vod", "name": "杏吧资源" },
-  "huangseziy": { "api": "https://hsckzy888.com/api.php/provide/vod", "name": "黄色资源啊啊" },
-  "xibaocaiji": { "api": "https://www.xxibaozyw.com/api.php/provide/vod", "name": "细胞采集黄色" },
-  "xiaojiziy": { "api": "https://api.xiaojizy.live/provide/vod", "name": "小鸡资源" },
-  "naixiangxiang": { "api": "https://naixxzy.com/api.php/provide/vod", "name": "奶香香" },
-  "lajiao": { "api": "http://apilj.com/api.php/provide/vod", "name": "辣椒" },
-  "didi": { "api": "https://api.ddapi.cc/api.php/provide/vod", "name": "滴滴" },
-  "huanggua": { "api": "https://www.avre06.com/api.php/Prodao/vod", "name": "黄瓜" },
-  "siwa": { "api": "https://siwazyw.tv/api.php/provide/vod", "name": "丝袜" },
-  "danaizi": { "api": "https://apidanaizi.com/api.php/provide/vod", "name": "大奶子" },
-  "hsckzy": { "api": "https://hsckzy.vip/api.php/provide/vod", "name": "黄仓VIP" }
+    "av155zy": {
+      "api": "https://155api.com/api.php/provide/vod",
+      "name": "AV-155资源",
+      "detail": "https://155api.com"
+    },
+    "avsouav": {
+      "api": "https://api.souavzy.vip/api.php/provide/vod",
+      "name": "AV-souav资源",
+      "detail": "https://api.souavzy.vip"
+    },
+    "avlebo": {
+      "api": "https://lbapi9.com/api.php/provide/vod",
+      "name": "AV-乐播资源",
+      "detail": ""
+    },
+    "avnaixx": {
+      "api": "https://Naixxzy.com/api.php/provide/vod",
+      "name": "AV-奶香香",
+      "detail": "https://Naixxzy.com"
+    },
+    "avxrbsp": {
+      "api": "https://www.xrbsp.com/api/json.php",
+      "name": "AV-淫水机资源",
+      "detail": "https://www.xrbsp.com"
+    },
+    "avbaipiao": {
+      "api": "https://www.kxgav.com/api/json.php",
+      "name": "AV-白嫖资源",
+      "detail": "https://www.kxgav.com"
+    },
+    "avmsnii": {
+      "api": "https://www.msnii.com/api/json.php",
+      "name": "AV-美少女资源",
+      "detail": "https://www.msnii.com"
+    },
+    "avgdlsp": {
+      "api": "https://www.gdlsp.com/api/json.php",
+      "name": "AV-香奶儿资源",
+      "detail": "https://www.gdlsp.com"
+    },
+    "kauiboziyuan": {
+      "api": "https://gayapi.com/api.php/provide/vod",
+      "name": "快播资源网站"
+    },
+    "xibaocaiji": {
+      "api": "https://www.xxibaozyw.com/api.php/provide/vod",
+      "name": "细胞采集黄色"
+    },
+    "xiaojiziy": {
+      "api": "https://api.xiaojizy.live/provide/vod",
+      "name": "小鸡资源"
+    },
+    "naixiangxiang": {
+      "api": "https://naixxzy.com/api.php/provide/vod",
+      "name": "奶香香"
+    },
+    "siwa": {
+      "api": "https://siwazyw.tv/api.php/provide/vod",
+      "name": "丝袜"
+    },
+    "danaizi": {
+      "api": "https://apidanaizi.com/api.php/provide/vod",
+      "name": "大奶子"
+    }
   }
 }
