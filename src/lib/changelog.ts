@@ -11,6 +11,21 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "2.3.1",
+    date: "2025-08-23",
+    added: [
+      // 无新增内容
+    ],
+    changed: [
+      // 无变更内容
+    ],
+    fixed: [
+    "修复配置文件不生效",
+    "修复无config.json文件报错",
+    "修复失败源不准确"
+    ]
+  },
+  {
     version: "2.2.8",
     date: "2025-08-22",
     added: [
