@@ -1,7 +1,8 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-var-requires */
 
-import fs from "fs";
-import * as path from "path";
+const fs = require("fs");
+const path = require("path");
 
 // 读取 config.json 文件路径
 const configPath = path.join(process.cwd(), "config.json");
@@ -14,9 +15,13 @@ try {
   if (fs.existsSync(configPath)) {
     // 有 config.json 就读取
     const configContent = fs.readFileSync(configPath, "utf-8");
-    config = JSON.parse(configContent);
+    try {
+      config = JSON.parse(configContent);
+    } catch (err) {
+      console.error("解析 config.json 失败");
+    }
   } else {
-    console.warn("⚠️ 未找到 config.json 文件，无默认配置");
+    console.warn("⚠️ 未找到 config.json 文件");
   }
 
   // 生成 TypeScript 代码
