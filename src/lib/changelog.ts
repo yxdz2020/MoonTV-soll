@@ -11,6 +11,21 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "2.3.4",
+    date: "2025-08-24",
+    added: [
+      // 无新增内容
+    ],
+    changed: [
+      // 无变更内容
+    ],
+    fixed: [
+    "修复管理功能不生效",
+    "修复netlify无法部署",
+    "修复非本地数据库初始化"
+    ]
+  },
+  {
     version: "2.3.1",
     date: "2025-08-23",
     added: [
