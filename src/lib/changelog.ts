@@ -11,6 +11,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "2.3.6",
+    date: "2025-08-24",
+    added: [
+      // 无新增内容
+    ],
+    changed: [
+    "优化播放优选换源"
+    ],
+    fixed: [
+    "修复播放视频源缓存"
+    ]
+  },
+  {
     version: "2.3.4",
     date: "2025-08-24",
     added: [

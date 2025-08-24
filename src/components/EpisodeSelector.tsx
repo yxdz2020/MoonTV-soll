@@ -44,9 +44,11 @@ interface EpisodeSelectorProps {
   precomputedVideoInfo?: Map<string, VideoInfo>;
   /** 优选播放源相关 */
   preferBestSource?: (sources: SearchResult[]) => Promise<SearchResult>;
-  setLoadingStage?: (stage: 'searching' | 'preferring' | 'fetching' | 'ready') => void;
-  setLoadingMessage?: (message: string) => void;
-  setLoading?: (loading: boolean) => void;
+  setLoading: (loading: boolean) => void;
+  /** 设置视频是否正在加载中的状态 */
+  setIsVideoLoading: (loading: boolean) => void;
+  /** 设置视频加载阶段的状态 */
+  setVideoLoadingStage: (stage: 'initing' | 'sourceChanging' | 'optimizing') => void;
 }
 
 /**
@@ -67,9 +69,9 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
   sourceSearchError = null,
   precomputedVideoInfo,
   preferBestSource,
-  setLoadingStage,
-  setLoadingMessage,
   setLoading,
+  setIsVideoLoading,
+  setVideoLoadingStage
 }) => {
   const router = useRouter();
   const pageCount = Math.ceil(totalEpisodes / episodesPerPage);
@@ -353,15 +355,16 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
               onClick={(e) => {
                 e.stopPropagation();
                 if (!availableSources || availableSources.length === 0) return;
-                if (setLoadingStage) setLoadingStage('preferring');
-                if (setLoadingMessage) setLoadingMessage('⚡ 正在测速优选...');
-                if (setLoading) setLoading(true);
+                setVideoLoadingStage('optimizing');
+                setIsVideoLoading(true);
                 preferBestSource(availableSources)
                   .then((bestSource) => {
                     // 确保bestSource有效
-                    if (bestSource && bestSource.source && bestSource.id) {
+                    if (bestSource && bestSource.source !== currentSource && bestSource.id !== currentId) {
                       // 无论是否是当前源，都调用handleSourceClick重新加载播放器
                       handleSourceClick(bestSource);
+                    }else{
+                      setIsVideoLoading(false);
                     }
                   })
                   .catch((_err: Error) => {

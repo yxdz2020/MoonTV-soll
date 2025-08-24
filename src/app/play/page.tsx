@@ -178,7 +178,7 @@ function PlayPageClient() {
   // 换源加载状态
   const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [videoLoadingStage, setVideoLoadingStage] = useState<
-    'initing' | 'sourceChanging'
+    'initing' | 'sourceChanging' | 'optimizing'
   >('initing');
 
   // 播放进度保存相关
@@ -708,16 +708,10 @@ function PlayPageClient() {
     
         if (cached) {
           parsed = JSON.parse(cached) as CachedResult;
-          // 判断 timestamp 是否过期，同时检查 results 中的 id 是否一致
-          const idsMatch = parsed.results.every((item, index) => item.title === videoTitle);
-          if (idsMatch) {
-            aggregatedResults = [...parsed.results];
-            setAvailableSources(aggregatedResults);
-            setSourceSearchLoading(false);
-            onResult?.(parsed.results); // 先回调缓存
-          } else {
-            parsed.reSearch = true; // 用对象标记
-          }
+          aggregatedResults = [...parsed.results];
+          setAvailableSources(aggregatedResults);
+          setSourceSearchLoading(false);
+          onResult?.(parsed.results);
         }
     
         // 2. 发起流式搜索请求
@@ -2061,6 +2055,8 @@ function PlayPageClient() {
                         <p className='text-xl font-semibold text-white animate-pulse'>
                           {videoLoadingStage === 'sourceChanging'
                             ? '🔄 切换播放源...'
+                            : videoLoadingStage === 'optimizing'
+                            ? '⚡ 优选播放源...'
                             : '🔄 视频加载中...'}
                         </p>
                       </div>
@@ -2093,8 +2089,8 @@ function PlayPageClient() {
                 precomputedVideoInfo={precomputedVideoInfo}
                 preferBestSource={preferBestSource}
                 setLoading={setLoading}
-                setLoadingStage={setLoadingStage}
-                setLoadingMessage={setLoadingMessage}
+                setIsVideoLoading={setIsVideoLoading}
+                setVideoLoadingStage={setVideoLoadingStage}
               />
             </div>
           </div>
